@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<head>
+	<meta charset="utf-8"/>
+	<title>Chatroom</title>
+	<style type="text/css">
+	body{
+		width: 500px;
+		margin: 0 auto;
+		padding: 0;
+		font:18px Verdana, sans-serif; 
+		line-height: 1.5;
+	}
+	a:link {
+		color:#717171; 
+		text-decoration:none; 
+	}      
+	a:visited {
+		color:#717171; 
+		text-decoration:none; 
+	}
+	a:hover {
+		color:#4cb8ca; 
+		text-decoration:none; 
+		transition: 300ms;
+	}  
+	</style>
+</head>
+
+<body>
+	
+	<h2>user</h2>
+	<div id="this_user"></div>
+
+	<h2>rooms</h2>
+	<div id="rooms"></div>
+	<button id="createRoomButton" onclick="create_room()">create room</button>
+
+	<h2>current room</h2>
+	<div id="current_room"></div>
+	<button id="deleteRoomButton">delete this room</button>
+
+
+	<h2>conversation</h2>
+	<div id="conversation"></div>
+	<input id="conversation_message" />
+	<button id="sendConversationButton">send</button>
+
+	<h2>chat</h2>
+	your are chatting with:
+	<div id="otherName"></div><br>
+	<div id="chat"></div>
+	<input id="chat_message" />
+	<button id="sendChatButton">send</button>
+
+	<h2>users in room</h2>
+	<div id="users"></div>
+	<button id="startChatButton">start chat</button>
+	<button id="tempBanButton">temporary ban</button>
+	<button id="permBanButton">permanent ban</button>
+
+	<script src="/socket.io/socket.io.js"></script>
+	<script src="/static/jquery-1.11.1.min.js"></script>
+
+	<script type ="text/javascript">
+
+	$('#deleteRoomButton').click( function() {
+		socket.emit('delete_room');
+	});
+
+	function create_room()	{
+		var roomname = prompt("Enter room name")
+		while (!roomname) {
+			roomname = prompt("Enter room name")
+		}
+
+		var password = prompt("Enter pass word");
+		if (!password) {
+			password = "";
+		}
+		socket.emit('create_room', roomname, password);
+	}
+
+	function switch_room(room){
+		socket.emit('switch_room', room);
+	}
+
+	$('#tempBanButton').click( function() {
+		var radios = document.getElementsByName("selectOne");
+		var myname = $("#this_user").text();
+		var username;
+
+		//get username of selected radio
+		for (var i=0; i<radios.length; i++) {
+			if (radios[i].checked) {
+				username = radios[i].value;
+			}
+		}
+		if (username) {
+			if (username != myname) {
+				socket.emit('temp_ban', myname, username);
+			}
+			else {
+				alert("lol you can't ban yourself");
+			}
+		}
+		else {
+			alert("lol you have to pick someone to ban");
+		}
+	});
+
+
+
+	$('#permBanButton').click( function() {
+		var radios = document.getElementsByName("selectOne");
+		var myname = $("#this_user").text();
+		var username;
+
+		//get username of selected radio
+		for (var i=0; i<radios.length; i++) {
+			if (radios[i].checked) {
+				username = radios[i].value;
+			}
+		}
+		if (username) {
+			if (myname != username) {
+				socket.emit('perm_ban', myname, username);
+			}
+			else {
+				alert("lol you can't ban yourself");
+			}
+		}
+		else {
+			alert("lol you have to pick someone to ban");
+		}
+	});
+
+
+	// when the client clicks SEND
+	$('#sendConversationButton').click( function() {
+		var message = $('#conversation_message').val();
+		$('#conversation_message').val(''); // clear box
+		socket.emit('send_conversation', message);
+	});
+
+	// when the client hits ENTER on their keyboard
+	// make click event to use above function
+	$('#conversation_message').keypress(function(e) {
+		if(e.which == 13) {
+			$(this).blur();
+			$('#sendConversationButton').click();
+		}
+	});
+
+	$('#startChatButton').click( function() {
+		var radios = document.getElementsByName("selectOne");
+		var myname = $("#this_user").text();
+		var username;
+
+		//get username of selected radio
+		for (var i=0; i<radios.length; i++) {
+			if (radios[i].checked) {
+				username = radios[i].value;
+			}
+		}
+		if (myname != username) {
+			$("#otherName").html(username);
+			socket.emit('start_chat', username);
+		}
+		else {
+			alert("lol you can't chat with yourself");
+		}
+	});
+
+	// when the client clicks SEND
+	$('#sendChatButton').click( function() {
+		var message = $('#chat_message').val();
+
+		if (message) {
+			$('#chat_message').val(''); // clear box
+			var otherName = $("#otherName").text();
+			socket.emit('send_chat', message, otherName);
+		}
+		else {
+			alert("empty chat message");
+		}
+
+	});
+
+	// when the client hits ENTER on their keyboard
+	// make click event to use above function
+	$('#chat_message').keypress(function(e) {
+		if(e.which == 13) {
+			$(this).blur();
+			$('#sendChatButton').click();
+		}
+	});
+
+
+	var socket = io.connect();
+
+	// add new user to room 1
+	socket.on("connect",function(data) {
+		var name = prompt("What's your name?")
+		while (!name) {
+			name = prompt("What's your name?")
+		}
+		socket.emit('add_user', name);
+	});
+
+	// add latest message to conversation
+	socket.on('update_conversation', function (conversation) {
+		$('#conversation').html(conversation);
+	});
+
+	// add latest message to chat
+	socket.on('update_chat', function (chat, otherName) {
+		$("#otherName").html(otherName);
+		$('#chat').html(chat);
+	});
+
+	// update room list links
+	socket.on('update_rooms', function(rooms) {
+		$("#rooms").empty(); // clear previous display
+		$.each(rooms, function(index, room) {
+			$('#rooms').append('<a href="#" onclick="switch_room(\''+room.roomname+'\')">' + room.roomname + '</a><br>');
+		});
+	});
+
+	// current room
+	socket.on('update_current_room', function(current_roomname) {
+		$("#current_room").html(current_roomname);
+	});
+
+	// current room
+	socket.on('update_current_user', function(username) {
+		$("#this_user").html(username);
+	});
+
+	// users in room 
+	socket.on('update_users', function(usernames) {
+		$("#users").empty(); // clear previous display
+		$.each(usernames, function(index, username) {
+			$('#users').append('<input type="radio" class="userRadio" name = "selectOne" value=\'' + username + '\'/> ' + username + '<br>');
+		});
+	});
+
+	// room needs pw
+	socket.on('ask_pw', function(roomname, room_pw) {
+		var guess = prompt("Enter password");
+		if (guess != room_pw) {
+			alert("Wrong password. You shall not pass");
+		}
+		else {
+			socket.emit('switch_okay', roomname);
+		}
+	});
+
+	socket.on('status', function(status) {
+		alert(status);
+	})
+
+
+	//check if one radio is selected
+	function oneRadio(radios) {
+		for (var i=0; i<radios.length; i++) {
+			if (radios[i].checked) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	</script>
+
+</body>
+
+</html>

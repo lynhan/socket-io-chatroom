@@ -1,0 +1,13 @@
+{
+  "name": "module6",
+  "version": "0.0.1",
+  "main": "chatserver.js",
+  "description": "Forum",
+  "dependencies": {
+    "es6":"*",
+    "socket.io":"*",
+    "array.prototype.find":"*",
+    "array.prototype.findIndex":"*",
+    "express":"*"
+  }
+}
